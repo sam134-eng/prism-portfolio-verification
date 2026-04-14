@@ -1,0 +1,156 @@
+// ============================================================
+// FINAL PRISM MODEL
+// ============================================================
+// This model represents a financial trading system formalised
+// as a Markov Decision Process (MDP) and verified using PCTL.
+//
+// ------------------------------
+// Key Features:
+// ------------------------------
+// - Two discrete assets (s1, s2) with bounded price levels
+// - Stochastic price transitions with correlation (CORR)
+// - Volatility regimes (LOW, MED, HIGH) with regime switching
+// - Transaction cost modelling for trading actions
+// - Multiple portfolio strategies:
+//     0 = Cash
+//     1 = Single asset (s1)
+//     2 = Diversified portfolio (s1 + s2)
+//     3 = Defensive strategy (partial allocation)
+//     4 = Single asset (s2)
+// - Momentum state (mom) capturing directional price movement
+//
+// ------------------------------
+// Purpose:
+// ------------------------------
+// This model is used to formally verify trading behaviour under
+// uncertainty, including:
+// - Probability of maintaining positive portfolio value
+// - Impact of volatility on risk exposure
+// - Effect of transaction costs on profitability
+// - Diversification and loss probability analysis
+//
+// The model is evaluated using PRISM probabilistic model checking,
+// providing exact probabilistic guarantees over all possible
+// system executions (Pmax / Pmin).
+// ============================================================
+
+mdp
+
+// ==============================
+// CONSTANTS
+// ==============================
+const int MAX_PRICE = 5;
+const int LOW  = 0;
+const int MED  = 1;
+const int HIGH = 2;
+
+const double CORR;
+const int COST; // leave parameterised
+
+const int TARGET = 7;
+const int LOSS   = 2;
+
+// ==============================
+// MODULE: MARKET
+// ==============================
+module market
+
+    s1  : [0..MAX_PRICE] init 3;
+    s2  : [0..MAX_PRICE] init 3;
+    vol : [0..2] init MED;
+    
+    mom : [0..2] init 1;
+
+    // Interior
+    [step] s1>0 & s1<MAX_PRICE & s2>0 & s2<MAX_PRICE ->
+        CORR         : (s1'=s1+1) & (s2'=s2+1) & (mom'=2) +
+        (1-CORR)/2   : (s1'=s1-1) & (s2'=s2)   & (mom'=0) +
+        (1-CORR)/2   : (s1'=s1)   & (s2'=s2-1) & (mom'=1);
+
+    // Boundaries
+    [step] s1=0 & s2>0 & s2<MAX_PRICE ->
+        (CORR/2)     : (s1'=s1)   & (s2'=s2+1) & (mom'=1) +
+        (1-CORR/2)/2 : (s1'=s1)   & (s2'=s2)   & (mom'=1) +
+        (1-CORR/2)/2 : (s1'=s1)   & (s2'=s2-1) & (mom'=1);
+
+    [step] s1=MAX_PRICE & s2>0 & s2<MAX_PRICE ->
+        (CORR/2)     : (s1'=s1)   & (s2'=s2+1) & (mom'=1) +
+        (1-CORR/2)/2 : (s1'=s1-1) & (s2'=s2)   & (mom'=0) +
+        (1-CORR/2)/2 : (s1'=s1)   & (s2'=s2-1) & (mom'=1);
+
+    [step] s2=0 & s1>0 & s1<MAX_PRICE ->
+        CORR         : (s1'=s1+1) & (s2'=s2)   & (mom'=2) +
+        (1-CORR)/2   : (s1'=s1-1) & (s2'=s2)   & (mom'=0) +
+        (1-CORR)/2   : (s1'=s1)   & (s2'=s2)   & (mom'=1);
+
+    [step] s2=MAX_PRICE & s1>0 & s1<MAX_PRICE ->
+        CORR         : (s1'=s1+1) & (s2'=s2)   & (mom'=2) +
+        (1-CORR)/2   : (s1'=s1-1) & (s2'=s2)   & (mom'=0) +
+        (1-CORR)/2   : (s1'=s1)   & (s2'=s2-1) & (mom'=1);
+
+    // Corners
+    [step] s1=0 & s2=0 -> 1 : (s1'=s1) & (s2'=s2) & (mom'=1);
+    [step] s1=MAX_PRICE & s2=MAX_PRICE -> 1 : (s1'=s1) & (s2'=s2) & (mom'=1);
+
+    // Volatility
+    [] vol=LOW  -> 0.7:(vol'=LOW)  + 0.3:(vol'=MED);
+    [] vol=MED  -> 0.3:(vol'=LOW)  + 0.4:(vol'=MED)  + 0.3:(vol'=HIGH);
+    [] vol=HIGH -> 0.6:(vol'=HIGH) + 0.4:(vol'=MED);
+
+endmodule
+
+// ==============================
+// MODULE: TRADER
+// ==============================
+module trader
+
+    pos  : [0..4]  init 0;  // ADDED pos=4 for s2
+    pval : [0..10] init 0;
+
+    [buy1]      pos=0 -> (pos'=1);
+    [buy2]      pos=0 -> (pos'=4); 
+    [buy_port]  pos=0 -> (pos'=2);
+    [buy_def]   pos=0 -> (pos'=3);
+
+    [sell]      pos>0 -> (pos'=0);
+    [hold]      pos>=0 -> (pos'=pos);
+
+    // Portfolio update with cost
+    [step] pos=1 -> (pval'=max(s1 - COST, 0));
+    
+    [step] pos=4 -> (pval'=max(s2 - COST, 0)); // NEW
+    
+    [step] pos=2 -> (pval'=max(min(s1+s2,10) - COST, 0));
+    
+    [step] pos=3 -> (pval'=max(floor(s1/2)+1 - COST, 0));
+    
+    [step] pos=0 -> (pval'=0);
+
+endmodule
+
+// ==============================
+// LABELS
+// ==============================
+label "loss_s1only" = pos=1 & pval <= LOSS;
+label "loss_s2only" = pos=4 & pval <= LOSS; 
+label "loss_joint"  = pos=2 & pval <= LOSS;
+
+label "profit" = pval >= TARGET;
+label "loss"   = pval <= LOSS;
+
+// ==============================
+// REWARDS
+// ==============================
+rewards "final_reward"
+    pval >= TARGET              : 5;
+    pval > LOSS & pval < TARGET : 3;
+    pval <= LOSS                : 0;
+endrewards
+
+rewards "transaction_cost"
+    [buy1]      true : COST;
+    [buy2]      true : COST; 
+    [buy_port]  true : COST;
+    [buy_def]   true : COST;
+    [sell]      true : COST;
+endrewards
