@@ -1,0 +1,224 @@
+
+
+// ==============================
+// CONSTANTS
+// ==============================
+const int MAX_PRICE = 5;
+const int LOW  = 0;
+const int MED  = 1;
+const int HIGH = 2;
+const int T = 50;
+
+const double CORR;   // sweep: 0.1, 0.5, 0.6
+const double COST;   // sweep: 0.0, 0.5, 1.0, 2.0,5.0
+
+const int TARGET = 7;
+const int LOSS   = 2;
+
+// ==============================
+// PORTFOLIO POSITION (pos)
+// ==============================
+// pos = 0 : cash (0 indicates no active investment)
+//
+// pos = 1 : single asset - holding stock s1 only
+// pos = 2 : single asset - holding stock s2 only
+//
+// pos = 3 : diversified portfolio (equal weight in s1 and s2)
+//
+// pos = 4 : weighted portfolio (2/3 in s1, 1/3 in s2)  // s1-heavy
+// pos = 5 : weighted portfolio (1/3 in s1, 2/3 in s2)  // s2-heavy
+//
+// pos = 6 : defensive portfolio (half cash, half s1)
+//           pval = floor(s1/2) + 1
+//
+//           The constant +1 represents the normalized cash component.
+//           This ensures the portfolio value does not collapse to zero.
+//
+//           Range: [1,3]
+//           For low prices (s1 = 0 or 1), pval = 1,
+//           which correctly reflects loss exposure even with cash.
+//           For higher s1 (>=2), the value stays above the LOSS threshold.
+// ==============================
+
+// ==============================
+// MODULE: MARKET
+// ==============================
+module market
+
+    s1  : [0..MAX_PRICE] init 3;
+    s2  : [0..MAX_PRICE] init 3;
+    vol : [0..2] init MED;
+
+    // Momentum proxy for s1: -1=falling, 0=flat, 1=rising
+    // Updated atomically with price. Approximates RSI direction
+    // without requiring price history window (avoids state explosion).
+    // mom in {0,1,2} encoded as: 0=falling, 1=flat, 2=rising
+    mom : [0..2] init 1;
+
+    // --------------------------
+    // Price transitions
+    // Interior case: both prices strictly between 0 and MAX_PRICE
+    // Three outcomes: correlated rise | s1 drops | s2 drops
+    // CORR drives joint upward movement (positive correlation model)
+    // --------------------------
+
+    // Both strictly interior
+    [step] s1>0 & s1<MAX_PRICE & s2>0 & s2<MAX_PRICE ->
+        CORR       : (s1'=s1+1) & (s2'=s2+1) & (mom'=2) +
+        (1-CORR)/2 : (s1'=s1-1) & (s2'=s2)   & (mom'=0) +
+        (1-CORR)/2 : (s1'=s1)   & (s2'=s2-1) & (mom'=1);
+
+    // s1 at floor (s1=0): s1 cannot fall further
+    // CORR effect on s1 is suppressed — only s2 moves upward
+    // [F2]: boundary degrades correlation to half-strength on surviving asset
+    [step] s1=0 & s2>0 & s2<MAX_PRICE ->
+        CORR/2     : (s1'=s1)   & (s2'=s2+1) & (mom'=1) +
+        (1-CORR/2)/2 : (s1'=s1) & (s2'=s2)   & (mom'=1) +
+        (1-CORR/2)/2 : (s1'=s1) & (s2'=s2-1) & (mom'=1);
+
+    // s1 at ceiling (s1=MAX_PRICE): s1 cannot rise further
+    [step] s1=MAX_PRICE & s2>0 & s2<MAX_PRICE ->
+        CORR/2     : (s1'=s1)   & (s2'=s2+1) & (mom'=2) +
+        (1-CORR/2)/2 : (s1'=s1-1) & (s2'=s2) & (mom'=0) +
+        (1-CORR/2)/2 : (s1'=s1)   & (s2'=s2-1) & (mom'=1);
+
+    // s2 at floor (s2=0): s2 cannot fall further
+    [step] s2=0 & s1>0 & s1<MAX_PRICE ->
+        CORR/2     : (s1'=s1+1) & (s2'=s2)   & (mom'=2) +
+        (1-CORR/2)/2 : (s1'=s1-1) & (s2'=s2) & (mom'=0) +
+        (1-CORR/2)/2 : (s1'=s1)   & (s2'=s2) & (mom'=1);
+
+    // s2 at ceiling (s2=MAX_PRICE): s2 cannot rise further
+    [step] s2=MAX_PRICE & s1>0 & s1<MAX_PRICE ->
+        CORR/2     : (s1'=s1+1) & (s2'=s2)   & (mom'=2) +
+        (1-CORR/2)/2 : (s1'=s1-1) & (s2'=s2) & (mom'=0) +
+        (1-CORR/2)/2 : (s1'=s1)   & (s2'=s2-1) & (mom'=1);
+
+    // Both at floor: absorbing — no movement possible
+    [step] s1=0 & s2=0 ->
+        1 : (s1'=s1) & (s2'=s2) & (mom'=0);
+
+    // Both at ceiling: absorbing — no movement possible
+    [step] s1=MAX_PRICE & s2=MAX_PRICE ->
+        1 : (s1'=s1) & (s2'=s2) & (mom'=2);
+
+    // s1 at floor, s2 at ceiling
+    [step] s1=0 & s2=MAX_PRICE ->
+        CORR/2     : (s1'=s1)   & (s2'=s2)   & (mom'=1) +
+        (1-CORR/2)/2 : (s1'=s1) & (s2'=s2)   & (mom'=1) +
+        (1-CORR/2)/2 : (s1'=s1) & (s2'=s2-1) & (mom'=1);
+
+    // s1 at ceiling, s2 at floor
+    [step] s1=MAX_PRICE & s2=0 ->
+        CORR/2     : (s1'=s1)   & (s2'=s2)   & (mom'=2) +
+        (1-CORR/2)/2 : (s1'=s1-1) & (s2'=s2) & (mom'=0) +
+        (1-CORR/2)/2 : (s1'=s1)   & (s2'=s2) & (mom'=1);
+
+    // --------------------------
+    // Volatility transitions (nondeterministic — adversarial scheduler)
+    // Unlabelled so that PRISM scheduler can choose worst-case trajectory
+    // --------------------------
+    [] vol=LOW  -> 0.7:(vol'=LOW)  + 0.3:(vol'=MED);
+    [] vol=MED  -> 0.3:(vol'=LOW)  + 0.4:(vol'=MED)  + 0.3:(vol'=HIGH);
+    [] vol=HIGH -> 0.6:(vol'=HIGH) + 0.4:(vol'=MED);
+
+endmodule
+
+// ==============================
+// MODULE: TRADER
+// ==============================
+module trader
+
+    pos  : [0..6]  init 0;
+    pval : [0..10] init 0;
+
+    // --------------------------
+    // Entry actions (from cash, pos=0 only)
+    // --------------------------
+    [buy1]      pos=0 -> (pos'=1);   // single asset: s1 only
+    [buy2]      pos=0 -> (pos'=2);   // single asset: s2 only
+    [buy_port]  pos=0 -> (pos'=3);   // equal-weight: s1 + s2
+    [buy_w1]    pos=0 -> (pos'=4);   // s1-heavy: 2/3 s1 + 1/3 s2
+    [buy_w2]    pos=0 -> (pos'=5);   // s2-heavy: 1/3 s1 + 2/3 s2
+    [buy_def]   pos=0 -> (pos'=6);   // defensive: half cash + half s1
+
+    
+   
+    [hold]  pos>=0 -> (pos'=pos);
+
+   
+    // --------------------------
+    [step] pos=1 -> (pval'=s1);
+    [step] pos=2 -> (pval'=s2);
+    [step] pos=3 -> (pval'=min(s1+s2, 10));
+    [step] pos=4 -> (pval'=min(floor((2*s1+s2)/3), 10));
+    [step] pos=5 -> (pval'=min(floor((s1+2*s2)/3), 10));
+    [step] pos=6 -> (pval'=min(floor(s1/2)+1, 10));   // [F1] FIXED
+    [step] pos=0 -> (pval'=0);
+
+endmodule
+
+// ==============================
+// LABELS
+// ==============================
+label "profit"       = pval >= TARGET;
+label "loss"         = pval <= LOSS;
+label "high_vol"     = vol = HIGH;
+label "low_vol"      = vol = LOW;
+label "in_market"    = pos > 0;
+label "cash"         = pos = 0;
+label "single_s1"    = pos = 1;
+label "single_s2"    = pos = 2;
+label "diversified"  = pos = 3;
+label "weighted_s1"  = pos = 4;
+label "weighted_s2"  = pos = 5;
+label "defensive"    = pos = 6;
+
+// Momentum signal labels (for RQ extension / conditional queries)
+label "momentum_up"   = mom = 2;
+label "momentum_flat" = mom = 1;
+label "momentum_down" = mom = 0;
+
+
+label "loss_s1only"  = pval <= LOSS & pos = 1;
+label "loss_s2only"  = pval <= LOSS & pos = 2;
+label "loss_joint"   = pval <= LOSS & pos = 3;
+label "loss_w1"      = pval <= LOSS & pos = 4;
+label "loss_w2"      = pval <= LOSS & pos = 5;
+label "loss_def"     = pval <= LOSS & pos = 6;
+
+// ==============================
+// REWARD STRUCTURES
+
+// ==============================
+
+rewards "final_reward"
+    pval >= TARGET              : 5;
+    pval > LOSS & pval < TARGET : 3;   // [F5] was: pval>0 & pval<TARGET
+    pval <= LOSS                : 0;
+    vol=HIGH & pos>0            : 1;
+endrewards
+
+// Transaction cost penalty: applied on each position entry AND exit
+rewards "transaction_cost"
+    [buy1]     true : COST;
+    [buy2]     true : COST;
+    [buy_port] true : COST;
+    [buy_w1]   true : COST;
+    [buy_w2]   true : COST;
+    [buy_def]  true : COST;
+   
+endrewards
+
+// Tail loss accumulator: counts the steps in loss zone while invested
+// Used for expected tail-loss queries (RQ4 CVaR proxy)
+rewards "loss_exposure"
+    pval <= LOSS & pos > 0 : 1;
+endrewards
+
+// Momentum-adjusted reward: bonus for entering on upward momentum
+// Captures the RSI/MACD-like signal contribution without state explosion
+rewards "momentum_reward"
+    mom=2 & pos>0 : 6;   // reward for holding during upward momentum
+    mom=0 & pos>0 : 0;  // no reward for holding during downward momentum
+endrewards
