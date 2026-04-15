@@ -1,0 +1,91 @@
+Pmin=? [ F<=20 (pval>0&vol=0) ]
+
+Pmax=? [ F<=20 (pval>0&vol=0) ]
+
+Pmin=? [ F<=20 (pval>0&vol=1) ]
+
+Pmax=? [ F<=20 (pval>0&vol=1) ]
+
+Pmin=? [ F<=20 (pval>0&vol=2) ]
+
+Pmax=? [ F<=20 (pval>0&vol=2) ]
+
+Pmin=? [ G<=20 (pval>0) ]
+
+Pmax=? [ G<=20 (pval>0) ]
+
+Pmin=? [ F<=20 (pval<=2&vol=2) ]
+
+Pmax=? [ F<=20 (pval<=2&vol=2) ]
+
+Pmin=? [ F<=20 (pval<=2&vol=0) ]
+
+Pmax=? [ F<=20 (pval<=2&vol=0) ]
+
+Pmin=? [ F<=10 (pval>=7) ]
+
+Pmax=? [ F<=10 (pval>=7) ]
+
+Pmin=? [ F<=20 (pval>=7) ]
+
+Pmax=? [ F<=20 (pval>=7) ]
+
+Pmin=? [ F<=50 (pval>=7) ]
+
+Pmax=? [ F<=50 (pval>=7) ]
+
+Pmin=? [ (pval>2) U<=30 (pval>=7) ]
+
+Pmax=? [ (pval>2) U<=30 (pval>=7) ]
+
+Rmin=? [ F (pval>=7) ]
+
+Rmax=? [ F (pval>=7) ]
+
+Pmin=? [ F<=20 (pval<=2) ]
+
+Pmax=? [ F<=20 (pval<=2) ]
+
+Pmin=? [ F<=50 (pval<=2) ]
+
+Pmax=? [ F<=50 (pval<=2) ]
+
+Pmin=? [ (pval>2) U<=20 (pval>=7) ]
+
+Pmax=? [ (pval>2) U<=20 (pval>=7) ]
+
+Pmin=? [ G<=20 (pval>2) ]
+
+Pmax=? [ G<=20 (pval>2) ]
+
+
+
+Pmax=? [ F<=20 (pval=0) ]
+
+Pmin=? [ F<=20 (pval=0) ]
+
+Pmax=? [ F<=20 (pval<=1) ]
+
+Pmin=? [ F<=20 (pval<=1) ]
+
+Pmax=? [ F<=20 (pval<=2) ]
+
+Pmin=? [ F<=20 (pval<=2) ]
+
+Pmin=? [ G<=20 (pval>2) ]
+
+Pmax=? [ G<=20 (pval>2) ]
+
+Pmax=? [ F<=20 (pval<=2&pos=1) ]
+
+Pmin=? [ F<=20 (pval<=2&pos=1) ]
+
+Pmax=? [ F<=20 (pval<=2&pos=2) ]
+
+Pmin=? [ F<=20 (pval<=2&pos=2) ]
+
+Pmax=? [ F<=20 (pval<=2&vol=2) ]
+
+Pmin=? [ F<=20 (pval<=2&vol=2) ]
+
+
