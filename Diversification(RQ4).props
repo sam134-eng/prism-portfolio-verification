@@ -1,0 +1,56 @@
+// ==============================
+// RQ4: Diversification Analysis
+// ==============================
+// This property file evaluates how expected cumulative reward
+// changes with different portfolio sizes (pos).
+// Here, 'pos' represents the number of assets held (diversification level).
+
+// Time horizon for cumulative reward
+// T is defined in the model (e.g., T = 50)
+
+// ------------------------------
+// BASELINE (No Filtering)
+// ------------------------------
+// Computes the maximum expected cumulative reward over ALL states
+// This serves as a reference point for comparison
+Rmax=? [ C<=T ]
+
+
+// ------------------------------
+// DIVERSIFICATION ANALYSIS
+// ------------------------------
+// Computes average expected reward conditioned on specific portfolio sizes
+// filter(avg, ...) ensures averaging over all states where pos = k
+
+// No investment (pos = 0)
+// Represents staying out of the market
+filter(avg, Rmax=? [ C<=T ], pos=0)
+
+// Minimal diversification (pos = 1)
+// Single asset strategy
+filter(avg, Rmax=? [ C<=T ], pos=1)
+
+// Low diversification (pos = 2)
+filter(avg, Rmax=? [ C<=T ], pos=2)
+
+// Moderate diversification (pos = 3)
+filter(avg, Rmax=? [ C<=T ], pos=3)
+
+// Higher diversification (pos = 4)
+filter(avg, Rmax=? [ C<=T ], pos=4)
+
+// Near-maximum diversification (pos = 5)
+filter(avg, Rmax=? [ C<=T ], pos=5)
+
+// Full diversification (pos = 6)
+// Maximum number of assets allowed in the model
+filter(avg, Rmax=? [ C<=T ], pos=6)
+
+
+// ==============================
+// INTERPRETATION GUIDE (for thesis)
+// ==============================
+// - Compare rewards across pos = 0 to 6
+// - Identify whether increasing diversification improves returns
+// - Look for diminishing returns or optimal portfolio size
+// - Use results to answer RQ4: Impact of diversification on performance
