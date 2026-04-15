@@ -1,0 +1,8 @@
+Pmin=? [ F<=10 (pval>=7) ]
+Pmax=? [ F<=10 (pval>=7) ]
+
+Pmin=? [ F<=20 (pval>=7) ]
+Pmax=? [ F<=20 (pval>=7) ]
+
+Pmin=? [ F<=30 (pval>=7) ]
+Pmax=? [ F<=30 (pval>=7) ]
