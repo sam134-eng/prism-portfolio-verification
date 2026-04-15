@@ -1,0 +1,17 @@
+// --- Single asset risks ---
+Pmin=? [ F<=5 (pval<=2&pos=1) ]
+
+filter(avg, Pmax=? [ F<=5 (pval<=2) ], pos=1)
+
+filter(avg, Pmin=? [ F<=5 (pval<=2) ], pos=1)
+
+filter(avg, Pmin=? [ F<=5 (pval<=2) ], pos=2)
+
+filter(avg, Pmin=? [ F<=5 (pval<=2) ], pos=6)
+
+filter(avg, Pmax=? [ F<=5 (pval<=2) ], pos=2)
+
+filter(avg, Pmin=? [ F<=5 (pval<=2) ], pos=3)
+
+filter(avg, Pmax=? [ F<=5 (pval<=2) ], pos=3)
+
